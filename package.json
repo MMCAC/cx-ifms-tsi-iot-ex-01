@@ -1,0 +1,13 @@
+{
+  "name": "chat-ajax-polling",
+  "version": "1.0.0",
+  "description": "Chat simples com 2 páginas usando AJAX polling",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.17.1"
+  }
+}
