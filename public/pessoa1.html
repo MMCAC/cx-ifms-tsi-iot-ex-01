@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <title>Pessoa 1</title>
+  <style>
+    body { font-family: Arial; max-width: 700px; margin: 20px auto; }
+    #chat { display: none; }
+    #msgs { border: 1px solid #ccc; padding: 10px; height: 360px; overflow-y: auto; }
+    .linha { margin: 6px 0; }
+    .eu { font-weight: bold; color: green; }
+    input { padding: 8px; width: 75%; }
+    button { padding: 8px 12px; }
+    .topo { display:flex; justify-content:space-between; align-items:center; gap: 10px; }
+    .acoes { display:flex; gap: 8px; align-items:center; }
+    #status { font-size: 12px; color: #666; }
+  </style>
+</head>
+
+<body>
+  <h3>Chat IoT - Página 1</h3>
+
+  <!-- Login -->
+  <div id="login">
+    <div class="topo">
+      <input id="nome" placeholder="Digite seu nome" />
+      <button onclick="entrar()">Entrar</button>
+    </div>
+    <p id="status">Digite um nome para iniciar.</p>
+  </div>
+
+  <!-- Chat -->
+  <div id="chat">
+    <div class="topo">
+      <strong id="usuario"></strong>
+      <div class="acoes">
+        <small id="online">offline</small>
+        <button onclick="trocarNome()">Trocar nome</button>
+      </div>
+    </div>
+
+    <div id="msgs" style="margin-top:10px;"></div>
+
+    <div style="margin-top:10px; display:flex; gap:8px;">
+      <input id="texto" placeholder="Digite..." onkeydown="if(event.key==='Enter') enviar()">
+      <button onclick="enviar()">Enviar</button>
+    </div>
+  </div>
+
+<script>
+  let EU = "";
+  let afterId = -1;
+  let timer = null;
+
+  function escapeHtml(s){
+    return String(s)
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#039;");
+  }
+
+  function setOnline(txt) {
+    document.getElementById("online").textContent = txt;
+  }
+
+  function entrar() {
+    const nome = document.getElementById("nome").value.trim();
+    if (!nome) return alert("Digite um nome.");
+
+    EU = nome;
+    afterId = -1;
+    document.getElementById("msgs").innerHTML = "";
+
+    document.getElementById("login").style.display = "none";
+    document.getElementById("chat").style.display = "block";
+    document.getElementById("usuario").textContent = "Logado como: " + EU;
+
+    // evita múltiplos intervals
+    if (timer) clearInterval(timer);
+    timer = setInterval(receber, 800);
+
+    receber();
+  }
+
+  function trocarNome() {
+    EU = "";
+    afterId = -1;
+
+    if (timer) clearInterval(timer);
+    timer = null;
+
+    setOnline("offline");
+    document.getElementById("msgs").innerHTML = "";
+
+    document.getElementById("chat").style.display = "none";
+    document.getElementById("login").style.display = "block";
+    document.getElementById("nome").value = "";
+    document.getElementById("nome").focus();
+  }
+
+  function addMsg(m) {
+    const box = document.getElementById("msgs");
+    const linha = document.createElement("div");
+    linha.className = "linha";
+    const classe = (m.de === EU) ? "eu" : "";
+
+    linha.innerHTML = `<span class="${classe}">${escapeHtml(m.de)}:</span> ${escapeHtml(m.texto)}`;
+    box.appendChild(linha);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  async function enviar() {
+    if (!EU) return alert("Você precisa entrar com um nome.");
+
+    const input = document.getElementById("texto");
+    const texto = input.value.trim();
+    if (!texto) return;
+
+    input.value = "";
+
+    try {
+      await fetch("/mensagens", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ de: EU, texto })
+      });
+    } catch (e) {
+      setOnline("offline");
+    }
+  }
+
+  async function receber() {
+    if (!EU) return;
+
+    try {
+      const r = await fetch(`/mensagens?afterId=${afterId}`);
+      const novas = await r.json();
+
+      setOnline("online");
+
+      for (const m of novas) {
+        addMsg(m);
+        afterId = Math.max(afterId, m.id);
+      }
+    } catch (e) {
+      setOnline("offline");
+    }
+  }
+</script>
+
+</body>
+</html>
